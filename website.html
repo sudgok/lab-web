@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Minimalist Local Editable Page</title>
+    <!-- Load Tailwind CSS for modern styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Custom styles for a clean, focused writing experience */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f7f9fc; /* Very light blue/gray background */
+        }
+        .container {
+            min-height: 100vh;
+        }
+        #editor {
+            min-height: 60vh;
+            outline: none;
+            cursor: text;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -2px rgba(0, 0, 0, 0.1);
+        }
+        /* Style for the placeholder text */
+        [contenteditable="true"]:empty:before {
+            content: "Click here and start typing...";
+            color: #9ca3af; /* Gray-400 */
+            font-style: italic;
+            pointer-events: none; /* Allows click-through */
+            display: block; /* For correct alignment */
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div class="max-w-4xl mx-auto container">
+        <header class="text-center mb-6">
+            <h1 class="text-3xl font-extrabold text-gray-800">For Pass</h1>
+            <p id="status-message" class="text-sm text-gray-500 mt-1">
+            </p>
+        </header>
+        
+        <!-- Controls Row: Copy Button -->
+        <div class="flex justify-end mb-4">
+            <button id="copy-button" class="px-4 py-2 bg-indigo-600 text-white rounded-lg shadow-md hover:bg-indigo-700 transition duration-150 text-sm font-semibold flex items-center">
+                <!-- Copy Icon (Lucide-react equivalent SVG) -->
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mr-2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span id="copy-text">Copy Content</span>
+            </button>
+        </div>
+
+        <!-- Main Editable Area -->
+        <div id="editor" 
+             contenteditable="true" 
+             class="w-full p-8 sm:p-12 bg-white rounded-xl text-lg leading-relaxed text-gray-800 focus:ring-4 focus:ring-indigo-200 transition duration-150"
+             role="textbox"
+             aria-multiline="true"
+             tabindex="0"
+        >
+        </div>
+
+    </div>
+
+    <script>
+        // --- Local Storage Implementation for VS Code ---
+        
+        const LOCAL_STORAGE_KEY = 'minimalEditorContent';
+        const editor = document.getElementById('editor');
+        const copyButton = document.getElementById('copy-button');
+        const copyTextSpan = document.getElementById('copy-text');
+        
+        // Debounce utility to prevent excessive local storage writes
+        function debounce(func, delay) {
+            let timeout;
+            return function(...args) {
+                clearTimeout(timeout);
+                timeout = setTimeout(() => func.apply(this, args), delay);
+            };
+        }
+
+        // Function to save content to local storage
+        const saveContent = debounce((content) => {
+            localStorage.setItem(LOCAL_STORAGE_KEY, content);
+            console.log('Content saved to local storage.');
+        }, 500); // Saves content 0.5 seconds after typing stops
+
+        // Function to load content from local storage
+        function loadContent() {
+            const savedContent = localStorage.getItem(LOCAL_STORAGE_KEY);
+            if (savedContent) {
+                editor.innerHTML = savedContent;
+            } else {
+                // Initial content if nothing is saved
+                editor.innerHTML = '<h1>Hello!</h1><p>Start typing or pasting content here. It will automatically save to your browser.</p>';
+            }
+        }
+        
+        // Function to copy content to clipboard
+        function copyContent() {
+            // Use innerText to get the content as plain text, ignoring hidden HTML tags
+            const contentToCopy = editor.innerText; 
+
+            // 1. Create a temporary textarea element for the execCommand
+            const tempInput = document.createElement('textarea');
+            tempInput.value = contentToCopy;
+            // Place it off-screen
+            tempInput.style.position = 'absolute';
+            tempInput.style.left = '-9999px';
+            document.body.appendChild(tempInput);
+
+            // 2. Select the content
+            tempInput.select();
+            tempInput.setSelectionRange(0, 99999); // For mobile compatibility
+
+            let success = false;
+            try {
+                // Execute copy command
+                success = document.execCommand('copy');
+            } catch (err) {
+                console.error('Copy failed using execCommand:', err);
+            }
+            
+            // 3. Clean up and provide visual feedback
+            document.body.removeChild(tempInput);
+
+            if (success) {
+                copyTextSpan.textContent = 'Copied!';
+                copyButton.classList.remove('bg-indigo-600');
+                copyButton.classList.add('bg-green-600');
+            } else {
+                copyTextSpan.textContent = 'Copy Failed';
+            }
+            
+            // Reset button text and color after 2 seconds
+            setTimeout(() => {
+                copyTextSpan.textContent = 'Copy Content';
+                copyButton.classList.remove('bg-green-600');
+                copyButton.classList.add('bg-indigo-600');
+            }, 2000);
+        }
+
+        // Attach Event Listener for Saving
+        editor.addEventListener('input', () => {
+            // Save the entire inner HTML content
+            saveContent(editor.innerHTML);
+        });
+        
+        // Attach the copy function
+        copyButton.addEventListener('click', copyContent);
+        
+        // Start the application setup on window load
+        window.onload = loadContent;
+
+    </script>
+</body>
+</html>
